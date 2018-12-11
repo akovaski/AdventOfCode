@@ -47,12 +47,22 @@ pub fn main() -> io::Result<()> {
 
             let total_distance = get_total_distance(Coord { x, y }, &coord_vec);
 
-            do_mark_radius(&mut chizu, Coord { x, y }, total_distance, *max_x, *max_y, coord_vec.len());
+            do_mark_radius(
+                &mut chizu,
+                Coord { x, y },
+                total_distance,
+                *max_x,
+                *max_y,
+                coord_vec.len(),
+            );
         }
     }
-    
+
     //print_map(&chizu, *max_x, *max_y);
-    let solution: usize = chizu.iter().map(|&val| if val < MAX_LIMIT { 1 } else { 0 }).sum();
+    let solution: usize = chizu
+        .iter()
+        .map(|&val| if val < MAX_LIMIT { 1 } else { 0 })
+        .sum();
 
     println!("{}", solution);
 
@@ -118,7 +128,6 @@ fn get_total_distance(coord: Coord, coord_vec: &Vec<Coord>) -> usize {
 
 #[allow(dead_code)]
 fn print_map(chizu: &Vec<usize>, max_x: usize, max_y: usize) {
-
     println!();
     for y in 0..=max_y {
         for x in 0..=max_x {
