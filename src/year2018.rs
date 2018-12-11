@@ -10,3 +10,4 @@ pub mod d05p1;
 pub mod d05p2;
 pub mod d06p1;
 pub mod d06p2;
+pub mod d07p1;
