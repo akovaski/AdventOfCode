@@ -25,8 +25,7 @@ pub fn main() -> io::Result<()> {
 }
 
 fn get_sum(node: &Node) -> usize {
-    node.metadata.iter().sum::<usize>() +
-    node.children.iter().map(|c| get_sum(c)).sum::<usize>()
+    node.metadata.iter().sum::<usize>() + node.children.iter().map(|c| get_sum(c)).sum::<usize>()
 }
 
 fn make_node<I>(num_iter: &mut I) -> Node
