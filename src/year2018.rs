@@ -12,3 +12,5 @@ pub mod d06p1;
 pub mod d06p2;
 pub mod d07p1;
 pub mod d07p2;
+pub mod d08p1;
+pub mod d08p2;
