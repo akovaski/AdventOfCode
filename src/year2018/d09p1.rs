@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::collections::LinkedList;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -16,31 +17,33 @@ pub fn main() -> io::Result<()> {
     let num_players: usize = cap[1].parse().unwrap();
     let last_marble: usize = cap[2].parse().unwrap();
 
-    let mut current_player = 0;
-    let mut current_marble_pos = 0;
+    println!("{}", simulate_highest_score(num_players, last_marble));
+    Ok(())
+}
 
-    let mut circle: Vec<usize> = Vec::new();
+pub fn simulate_highest_score(num_players: usize, last_marble: usize) -> usize {
+    let mut current_player = 0;
+
+    let mut circle: LinkedList<usize> = LinkedList::new();
     let mut scores = vec![0; num_players];
 
-    circle.push(0);
+    circle.push_back(0);
 
     for new_marble in 1..=last_marble {
         if new_marble % 23 == 0 {
-            let new_marble_pos = (current_marble_pos + circle.len() - 7) % circle.len();
-            current_marble_pos = new_marble_pos;
-
-            let removed = circle.remove(new_marble_pos);
-            scores[current_player] += new_marble + removed;
-        } else {
-            let new_marble_pos = (current_marble_pos + 2) % circle.len();
-            current_marble_pos = new_marble_pos;
-
-            if new_marble_pos == 0 {
-                circle.push(new_marble);
-                current_marble_pos = circle.len() - 1;
-            } else {
-                circle.insert(new_marble_pos, new_marble);
+            for _ in 0..7 {
+                let popped = circle.pop_back().unwrap();
+                circle.push_front(popped);
             }
+
+            scores[current_player] += new_marble + circle.pop_back().unwrap();
+
+            let popped = circle.pop_front().unwrap();
+            circle.push_back(popped);
+        } else {
+            let popped = circle.pop_front().unwrap();
+            circle.push_back(popped);
+            circle.push_back(new_marble);
         }
 
         current_player = if current_player + 1 == num_players {
@@ -50,6 +53,5 @@ pub fn main() -> io::Result<()> {
         };
     }
 
-    println!("{}", scores.iter().max().unwrap());
-    Ok(())
+    *scores.iter().max().unwrap()
 }
