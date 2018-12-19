@@ -10,26 +10,18 @@ pub fn main() -> io::Result<()> {
     f.read_to_string(&mut buf)?;
 
     let serial_num: i32 = buf.parse().unwrap();
+    let partial_sums = d11p1::calc_partial_sums(serial_num);
 
     let mut max_pl = -9999;
     let mut max_coord = (0, 0, 0);
 
-    let mut cache = [[0; 300]; 300];
-
     for size in 1..=300 {
         for x in 0..300 - size + 1 {
             for y in 0..300 - size + 1 {
-                let square_pl: &mut i32 = &mut cache[x as usize][y as usize];
-                for dx in 0..size - 1 {
-                    *square_pl += d11p1::power_level(x + dx, y + size - 1, serial_num);
-                }
-                for dy in 0..size - 1 {
-                    *square_pl += d11p1::power_level(x + size - 1, y + dy, serial_num);
-                }
-                *square_pl += d11p1::power_level(x + size - 1, y + size - 1, serial_num);
+                let square_pl = d11p1::square_power_level(&partial_sums, x, y, size);
 
-                if *square_pl > max_pl {
-                    max_pl = *square_pl;
+                if square_pl > max_pl {
+                    max_pl = square_pl;
                     max_coord = (x, y, size);
                 }
             }
