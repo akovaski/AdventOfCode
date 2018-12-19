@@ -46,6 +46,8 @@ fn main() -> io::Result<()> {
             "9-2" => year2018::d09p2::main(),
             "10-1" => year2018::d10p1::main(),
             "10-2" => year2018::d10p2::main(),
+            "11-1" => year2018::d11p1::main(),
+            "11-2" => year2018::d11p2::main(),
             _ => Err(io::Error::new(io::ErrorKind::Other, "Day not found")),
         },
         _ => Err(io::Error::new(io::ErrorKind::Other, "Year not found")),
