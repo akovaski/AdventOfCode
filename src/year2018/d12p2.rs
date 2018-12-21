@@ -1,9 +1,11 @@
 use regex::Regex;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::io::BufReader;
+
+use super::d12p1;
 
 pub fn main() -> io::Result<()> {
     let f = File::open("./input/day12.txt")?;
@@ -38,7 +40,7 @@ pub fn main() -> io::Result<()> {
     state_history.push(init_state);
 
     for i in 1..5000 {
-        let new_gen = grow_generation(state_history.last().unwrap(), &rules);
+        let new_gen = d12p1::grow_generation(state_history.last().unwrap(), &rules);
         state_history.push(new_gen);
 
         if let Some(dup_i) = find_duplicate_of_last(&state_history) {
@@ -87,38 +89,4 @@ fn find_duplicate_of_last(state_history: &Vec<Vec<(i32, char)>>) -> Option<usize
     }
 
     duplicate
-}
-
-fn grow_generation(state: &Vec<(i32, char)>, rules: &HashMap<String, char>) -> Vec<(i32, char)> {
-    let mut new_gen = Vec::new();
-
-    let mut stage = VecDeque::from(vec!['.'; 5]);
-
-    let mut first_last_plant: Option<(usize, usize)> = None;
-
-    for i in 0..state.len() + 4 {
-        let c = if i < state.len() { state[i].1 } else { '.' };
-
-        stage.pop_front().unwrap();
-        stage.push_back(c);
-        let ss: String = stage.iter().collect();
-        let result: char = *rules.get(&ss).unwrap_or(&'.');
-
-        if result == '#' {
-            first_last_plant = Some(if let Some(fl) = first_last_plant {
-                (fl.0, i)
-            } else {
-                (i, i)
-            });
-        }
-        new_gen.push((state[0].0 + i as i32 - 2, result));
-    }
-
-    let range = if let Some(fl) = first_last_plant {
-        fl.0..fl.1 + 1
-    } else {
-        0..0
-    };
-
-    new_gen[range].to_vec()
 }

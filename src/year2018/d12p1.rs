@@ -52,7 +52,10 @@ pub fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn grow_generation(state: &Vec<(i32, char)>, rules: &HashMap<String, char>) -> Vec<(i32, char)> {
+pub fn grow_generation(
+    state: &Vec<(i32, char)>,
+    rules: &HashMap<String, char>,
+) -> Vec<(i32, char)> {
     let mut new_gen = Vec::new();
 
     let mut stage = VecDeque::from(vec!['.'; 5]);
