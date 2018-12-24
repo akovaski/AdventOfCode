@@ -134,7 +134,7 @@ pub fn main() -> io::Result<()> {
     }
 
     for round in 0.. {
-        let complete_round = simulate_one_round(&map, &mut chars);
+        let complete_round = simulate_one_round(&map, &mut chars, 3);
 
         let goblins_remaining = chars.values().any(|&c| c.unit == Unit::Goblin);
         let elfs_remaining = chars.values().any(|&c| c.unit == Unit::Elf);
@@ -152,7 +152,11 @@ pub fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn simulate_one_round(map: &BTreeMap<Point, Tile>, chars: &mut BTreeMap<Point, CharInfo>) -> bool {
+pub fn simulate_one_round(
+    map: &BTreeMap<Point, Tile>,
+    chars: &mut BTreeMap<Point, CharInfo>,
+    elf_attack: i32,
+) -> bool {
     for point in chars.clone().keys() {
         let unit = chars.get(point);
         if unit.is_none() || unit.unwrap().moved {
@@ -204,7 +208,11 @@ fn simulate_one_round(map: &BTreeMap<Point, Tile>, chars: &mut BTreeMap<Point, C
                 .unwrap();
 
             let enemy = chars.get_mut(point_to_attack).unwrap();
-            enemy.health -= 3;
+            let attack = match unit.unit {
+                Unit::Elf => elf_attack,
+                Unit::Goblin => 3,
+            };
+            enemy.health -= attack;
 
             if enemy.health <= 0 {
                 chars.remove(point_to_attack);
@@ -378,7 +386,7 @@ fn find_shortest_step(
 }
 
 #[allow(dead_code)]
-fn print_map(map: &BTreeMap<Point, Tile>, chars: &BTreeMap<Point, CharInfo>) {
+pub fn print_map(map: &BTreeMap<Point, Tile>, chars: &BTreeMap<Point, CharInfo>) {
     for (point, tile) in map.iter() {
         if point.y != 0 && point.x == 0 {
             println!();
