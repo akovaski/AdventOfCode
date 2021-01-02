@@ -1,7 +1,6 @@
-input.txt
-*.swp
-
 # ignore files with no extension (binaries), unignore extensions
 *_*
 !*_*.* 
-*_*.swp
+
+input*.txt
+*.swp
