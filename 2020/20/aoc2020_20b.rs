@@ -30,10 +30,9 @@ fn main() -> Result<()> {
     tile_map.insert(tiles[0].id, (0, 0));
     loc_map.insert((0, 0), tiles[0].id);
     flipped_and_rotated_map.insert((0, 0), (false, Rotation::_0));
-    let mut edges_to_check: VecDeque<(i32, Point)> = generate_neighbor_requirements(&tiles[0], (false, Rotation::_0), (0,0)).to_vec().into(); /*tiles[0].edge_ids.iter().cloned()
-        .zip([(0, 1), (1, 0), (0, -1), (-1, 0)].iter().cloned())
-        .collect();*/
-
+    let mut edges_to_check: VecDeque<(i32, Point)> =
+        generate_neighbor_requirements(&tiles[0], (false, Rotation::_0), (0,0))
+        .to_vec().into();
     fn update_bounds((old_min, old_max): (i32, i32), new: i32) -> (i32, i32) {
         (std::cmp::min(old_min, new), std::cmp::max(old_max, new))
     }
@@ -121,7 +120,18 @@ fn main() -> Result<()> {
                         _ => unreachable!(),
                     }).collect::<Vec<bool>>()).collect::<Grid>();
 
-    println!("Number of sea monsters {}", count_positive_pattern(&combined_tiles, &sea_monster));
+    let num_sea_monsters = count_positive_pattern(&combined_tiles, &sea_monster);
+    println!("Number of sea monsters {}", num_sea_monsters);
+    
+    fn count_pounds(grid: &Grid) -> i32 {
+        grid.iter().map(|row| row.iter().filter(|x| **x == true).count() as i32).sum()
+    }
+
+    let image_pounds = count_pounds(&combined_tiles);
+    let sea_monster_pounds = count_pounds(&sea_monster);
+    println!("# count of image: {}", image_pounds);
+    println!("# per sea monster: {}", sea_monster_pounds);
+    println!("sea roughness: {}", image_pounds - num_sea_monsters * sea_monster_pounds);
 
     Ok(())
 }
@@ -326,102 +336,6 @@ fn fr_edges(edges: &[i32], (flip, rot): (bool, Rotation)) -> [i32; 4] {
             reverse_edge(edges[idx_list[3]]),
         ]
     }
-}
-
-// flip along the vertical axis, then rotate clockwise to fit
-fn flip_and_rotate_to_match_below(id_map: &HashMap<i64, &Tile>, loc_map: &HashMap<Point, i64>, flipped_and_rotated_map: &HashMap<Point, (bool, Rotation)>, loc: Point) -> (bool, Rotation) {
-    let tile = id_map.get(loc_map.get(&loc).unwrap()).unwrap();
-    let below_tile = id_map.get(loc_map.get(&(loc.0, loc.1 - 1)).unwrap()).unwrap();
-    let (below_flipped, below_rotation) = flipped_and_rotated_map.get(&(loc.0, loc.1 - 1)).unwrap();
-    
-    let mut rotation = None;
-    let mut flip = None;
-    let below_top_edge = match below_flipped {
-        false => match below_rotation {
-            Rotation::_0 => below_tile.raw_edge_ids[0],
-            Rotation::_90 => below_tile.raw_edge_ids[3],
-            Rotation::_180 => below_tile.raw_edge_ids[2],
-            Rotation::_270 => below_tile.raw_edge_ids[1],
-        }
-        true => match below_rotation {
-            Rotation::_0 => reverse_edge(below_tile.raw_edge_ids[0]),
-            Rotation::_90 => reverse_edge(below_tile.raw_edge_ids[1]),
-            Rotation::_180 => reverse_edge(below_tile.raw_edge_ids[2]),
-            Rotation::_270 => reverse_edge(below_tile.raw_edge_ids[3]),
-        }
-    };
-    for (i, &edge) in tile.raw_edge_ids.iter().enumerate() {
-        if edge == below_top_edge {
-            flip = Some(true);
-            rotation = Some(match i {
-                0 => Rotation::_180,
-                1 => Rotation::_270,
-                2 => Rotation::_0,
-                3 => Rotation::_90,
-                _ => unreachable!(),
-            });
-        } else if edge == reverse_edge(below_top_edge) {
-            flip = Some(false);
-            rotation = Some(match i {
-                0 => Rotation::_180,
-                1 => Rotation::_90,
-                2 => Rotation::_0,
-                3 => Rotation::_270,
-                _ => unreachable!(),
-            });
-        }
-    }
-
-    (flip.unwrap(), rotation.unwrap())
-}
-
-// flip along the vertical axis, then rotate clockwise to fit
-fn flip_and_rotate_to_match_left(id_map: &HashMap<i64, &Tile>, loc_map: &HashMap<Point, i64>, flipped_and_rotated_map: &HashMap<Point, (bool, Rotation)>, loc: Point) -> (bool, Rotation) {
-    let tile = id_map.get(loc_map.get(&loc).unwrap()).unwrap();
-    let left_tile = id_map.get(loc_map.get(&(loc.0 - 1, loc.1)).unwrap()).unwrap();
-    let (left_flipped, left_rotation) = flipped_and_rotated_map.get(&(loc.0 - 1, loc.1)).unwrap();
-    
-    let mut rotation = None;
-    let mut flip = None;
-    let lefts_right_edge = match left_flipped {
-        false => match left_rotation {
-            Rotation::_0 => left_tile.raw_edge_ids[1],
-            Rotation::_90 => left_tile.raw_edge_ids[0],
-            Rotation::_180 => left_tile.raw_edge_ids[3],
-            Rotation::_270 => left_tile.raw_edge_ids[2],
-        }
-        true => match left_rotation {
-            Rotation::_0 => reverse_edge(left_tile.raw_edge_ids[3]),
-            Rotation::_90 => reverse_edge(left_tile.raw_edge_ids[0]),
-            Rotation::_180 => reverse_edge(left_tile.raw_edge_ids[1]),
-            Rotation::_270 => reverse_edge(left_tile.raw_edge_ids[2]),
-        }
-    };
-    //dbg!(lefts_right_edge, &tile.edge_ids, tile.edge_ids.iter().map(|e| reverse_edge(*e)).collect::<Vec<i32>>());
-    //dbg!(&left_tile.edge_ids, left_tile.edge_ids.iter().map(|e| reverse_edge(*e)).collect::<Vec<i32>>());
-    for (i, &edge) in tile.raw_edge_ids.iter().enumerate() {
-        if edge == lefts_right_edge {
-            flip = Some(true);
-            rotation = Some(match i {
-                0 => Rotation::_270,
-                1 => Rotation::_0,
-                2 => Rotation::_90,
-                3 => Rotation::_180,
-                _ => unreachable!(),
-            });
-        } else if edge == reverse_edge(lefts_right_edge) {
-            flip = Some(false);
-            rotation = Some(match i {
-                0 => Rotation::_270,
-                1 => Rotation::_180,
-                2 => Rotation::_90,
-                3 => Rotation::_0,
-                _ => unreachable!(),
-            });
-        }
-    }
-
-    (flip.unwrap(), rotation.unwrap())
 }
 
 fn reverse_edge(mut edge: i32) -> i32 {
