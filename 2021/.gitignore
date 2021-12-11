@@ -1,0 +1,6 @@
+# ignore files with no extension (binaries), unignore extensions
+*_*
+!*_*.* 
+
+input*.txt
+*.swp
