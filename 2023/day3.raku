@@ -41,16 +41,11 @@ sub MAIN($input) {
 
     my $part-one-sum = 0;
     for @numbers -> ($y, $x, $number) {
-        my $len = $number.chars;
-        CHECK: for $y + (-1..1) -> $i {
-            next if $i < 0;
-            for $x + (-1..$len) -> $j {
-                next if $j < 0;
-                next if @grid[$i][$j]:!exists;
-                if @grid[$i][$j][0] eq "sym" {
-                    $part-one-sum += +$number;
-                    last CHECK;
-                }
+        for ((-1..1)X(-1..$number.chars)).map({(.[0]+$y,.[1]+$x)}) -> ($i, $j) {
+            next if $i < 0 || $j < 0 || (@grid[$i][$j]:!exists);
+            if @grid[$i][$j][0] eq "sym" {
+                $part-one-sum += +$number;
+                last;
             }
         }
     }
@@ -59,15 +54,11 @@ sub MAIN($input) {
     for @symbols -> ($y, $x, $symbol) {
         next unless $symbol eq "*";
         my %parts is SetHash;
-        for $y + (-1..1) -> $i {
-            next if $i < 0;
-            for $x + (-1..1) -> $j {
-                next if $j < 0;
-                next if @grid[$i][$j]:!exists;
-                my $id = @grid[$i][$j];
-                if $id[0] eq "num" {
-                    %parts{$id[1]}++;
-                }
+        for ((-1..1)X(-1..1)).map({(.[0]+$y,.[1]+$x)}) -> ($i, $j) {
+            next if $i < 0 || $j < 0 || (@grid[$i][$j]:!exists);
+            my $id = @grid[$i][$j];
+            if $id[0] eq "num" {
+                %parts{$id[1]}++;
             }
         }
         if %parts.elems == 2 {
