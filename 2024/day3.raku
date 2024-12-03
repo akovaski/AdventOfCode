@@ -10,27 +10,15 @@ sub MAIN($input) {
     my $part-one-solution = @muls.map({[*] $_.List}).sum;
     say "part 1: $part-one-solution";
 
-    grammar DontMuls {
-        token TOP { .*? (<dont> || <dodo> || <mul>)+%.*? .* }
+    grammar EnabledMuls {
+        token TOP { .*? [<.disabled> || <mul>]+%.*? .* }
         token mul { "mul(" <number> "," <number> ")" }
         token number { \d+ }
-        token dont { "don't()" }
-        token dodo { "do()" }
+        token disabled { "don't()" .*? ["do()" || $] }
     }
 
-    my $parsedDontMuls = DontMuls.parsefile($input);
-    my $enabled = True;
-    my $part-two-solution = 0;
-    for $parsedDontMuls[0] {
-        if .<mul> and $enabled {
-            $part-two-solution += [*] .<mul><number>».Int;
-        }
-        elsif .<dont> {
-            $enabled = False;
-        }
-        elsif .<dodo> {
-            $enabled = True;
-        }
-    }
+    my $parsedEnabledMuls = EnabledMuls.parsefile($input);
+    my @enabledMuls = $parsedEnabledMuls<mul>.map({.<number>».Int});
+    my $part-two-solution = @enabledMuls.map({[*] $_.List}).sum;
     say "part 2: $part-two-solution";
 }
