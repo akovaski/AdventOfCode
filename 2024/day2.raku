@@ -19,14 +19,14 @@ sub MAIN($input) {
     }
 
     my $reportList = ReportList.parse($file.slurp);
-    my @reports is List = $reportList<report>.map({.<level>.map({.Int}).Array});
-    my $part-one-solution = @reports.grep({
+    my $reports = $reportList<report>.map({.<level>.map({.Int}).List}).List;
+    my $part-one-solution = $reports.grep({
         ($_ eq $_.sort[*] or $_ eq $_.sort.reverse) and
         so 1 <= ($_ Z- $_[1..*])».abs.all <= 3
     }).elems;
     say "part 1: $part-one-solution";
 
-    my $part-two-solution = @reports.grep({ dampenedReports($_).map({
+    my $part-two-solution = $reports.grep({ dampenedReports($_).map({
         ($_ eq $_.sort or $_ eq $_.sort.reverse) and
         so 1 <= ($_ Z- $_[1..*])».abs.all <= 3
     }).any}).elems;
