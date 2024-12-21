@@ -35,13 +35,20 @@ sub MAIN($input) {
     say "part1 solution: $part1-solution";
 
     my $part2-shortcut-savings = BagHash.new();
-    for %step-lookup.kv -> $p, $base-steps {
-        my @p = $p.split(";")>>.Int;
-        for 2..20 -> $radius {
-            for radius-points($radius) -> @jump {
-                my @np = @p Z+ @jump;
-                next if %step-lookup{index-p(@np)}:!exists;
-                my $time-saved = %step-lookup{index-p(@np)} - $base-steps - $radius;
+    my %soup;
+    my @right-offsets = radius-points(20).grep(*.[1] >= 0 && *.[0] != 20);
+    for (0..@map.elems) X (-20..@map[0].elems) -> @p {
+        %soup = Hash.new() if @p[1] == -20;
+        %soup{index-p(@p Z+ (0, 19))} = %step-lookup{index-p(@p Z+ (0, 19))} if %step-lookup{index-p(@p Z+ (0, 19))}:exists;
+        %soup{index-p(@p Z+ (0, -1))}:delete;
+        
+        my @new-compares = @right-offsets.map(-> @o {(@o Z+ @p).List}).grep({%step-lookup{index-p($_)}:exists});
+        for @new-compares -> @nc {
+            my $nc-value = %step-lookup{index-p(@nc)};
+            for %soup {
+                my @sp = .key.split(";")>>.Int;
+                my $distance = (@nc Z- @sp)>>.abs.sum;
+                my $time-saved = $nc-value - .value - $distance;
                 $part2-shortcut-savings{$time-saved}++ if $time-saved > 0;
             }
         }
