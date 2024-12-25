@@ -6,7 +6,7 @@ sub MAIN($input) {
     }
     my $parsed = Input.parsefile($input);
     my %initial-wires = $parsed<wire>.map({.[0].Str => .[1].Int.Bool});
-    my %gates = $parsed<gate>.map({.[3].Str => (.[1].Str, (.[0].Str, .[2].Str))});
+    my %gates = $parsed<gate>.map({.[3].Str => (.[1].Str, (.[0].Str, .[2].Str).sort.List)});
     # say %initial-wires.raku;
     # say %gates.raku;
 
@@ -14,7 +14,6 @@ sub MAIN($input) {
     say "part1 solution: $part1-solution";
 
     my $part2-solution = 0;
-
     # z00   = XOR(x00, y00)
     # z00c  = AND(y00, x00)
     #
@@ -29,171 +28,258 @@ sub MAIN($input) {
     # z02nc = AND(x02, y02)
     # z02cc = AND(z02p, z01c)
     # z02c  = OR(z02nc, z02cc)
-    my %inputs-to-gates;
-    for %gates -> $gatekv {
-        %inputs-to-gates{$gatekv.value[1].all}.push($gatekv.key);
-    }
-    # say %inputs-to-gates;
 
-    my %named-gates;
-    my %unexpected is SetHash;
-    for 0..* {
-        my $zgate = "z" ~ sprintf("%02d", $_);
-        last if %gates{$zgate}:!exists;
-        resolve-gate-symbols(%gates, %named-gates, $zgate, Nil, $_, %unexpected);
-    }
-    say %unexpected.keys.sort.join(",");
+    # Only the gate outputs are swapped, in other words the inputs are always correct
+    my %unknown-outputs := %gates.keys.SetHash;
+    my %known-correct-outputs is SetHash;
+    my %known-wrong-outputs is SetHash;
+    my %zXp-outputs;
+    my %zX-outputs;
+    my %zXnc-outputs;
+    my %zXcc-outputs;
+    my %zXc-outputs;
 
-    # loop {
-    #     my %wires = %initial-wires;
-    #     for %wires.keys {
-    #         # my $prefix = .substr(0, 1);
-    #         # say "$_: ", !(so (.substr(0,1) eq ("x", "y").any));
-    #         # say "$_: " <x y>.grep({$prefix == $_});
-    #         next unless .substr(0,1) eq ("x", "y").any;
-    #         %wires{$_} = rand > 0.5;
-    #         # say "$_: {%wires{$_}}";
+    for %unknown-outputs.keys -> $uo {
+        my ($op, $input-wires) = %gates{$uo};
+        if $op eq "XOR" {
+            my $is-xy-inputs = $input-wires[0].substr(0,1) eq "x";
+            # my $is-zX-output = $uo.substr(0,1) eq "z";
+            if $is-xy-inputs {
+                %zXp-outputs{$uo} = $input-wires[0].substr(1,2).Int;
+            } else {
+                # any XOR gates that are not for zXp are for zX
+                # but we don't know for sure what zX gate it is for
+                %zX-outputs{$uo} = Nil;
+            }
+            %unknown-outputs{$uo}--;
+            # if $is-zXp-inputs != $is-zX-output || $uo eq "z00" && $is-zXp-inputs && $is-zX-output {
+            #     %known-correct-outputs{$uo}++;
+            # } else {
+            #     %known-wrong-outputs{$uo}++;
+            # }
+            # %unknown-outputs{$uo}--;
+        }
+        if $op eq "AND" {
+            my $is-xy-inputs = $input-wires[0].substr(0,1) eq "x";
+            if $is-xy-inputs {
+                %zXnc-outputs{$uo} = $input-wires[0].substr(1,2).Int;
+            } else {
+                # any AND gates taht are not for zXnc are for zXcc
+                # but we don't know for sure what zXcc gate it is for
+                %zXcc-outputs{$uo} = Nil;
+            }
+            %unknown-outputs{$uo}--;
+            # my $is-zX-output = $uo.substr(0,1) eq "z";
+            # %zXnc-outputs{$uo} = $input-wires[0].substr(1,2).Int if $is-zXp-inputs;
+            # if $is-zX-output {
+            #     %known-wrong-outputs{$uo}++;
+            #     %unknown-outputs{$uo}--;
+            # } elsif $is-zXp-inputs {
+            #     %known-correct-outputs{$uo}++;
+            #     %unknown-outputs{$uo}--;
+            # }
+        }
+        if $op eq "OR" {
+            %zXc-outputs{$uo} = Nil;
+            %unknown-outputs{$uo}--;
+        }
+    }
+    # z00, z00c are special
+    # leaving z00 off of zX-outputs and putting z00nc onto zXc-outputs is useful
+    for %gates.keys -> $wire {
+        %zXc-outputs{$wire} = Nil if %zXnc-outputs{$wire}:exists && %zXnc-outputs{$wire} == 0;
+    }
+    # Let's just look for structural issues, ignoring lateral swaps
+    for %zX-outputs.keys -> $wire {
+        if $wire !~~ /^z\d\d$/ {
+            # All zX gates should output to a zX wire
+            say "huh zX? $wire";
+            %known-wrong-outputs{$wire}++;
+        }
+        my $found-zXp = Nil;
+        my $found-zXc = Nil;
+        for %gates{$wire}[1].Seq {
+            if %zXp-outputs{$_}:exists {
+                $found-zXp = True;
+            } elsif %zXc-outputs{$_}:exists {
+                $found-zXc = True;
+            } else {
+                say "huh input to zX? $wire, $_";
+                %known-wrong-outputs{$_}++;
+            }
+        }
+        if !$found-zXc || !$found-zXp {
+            say "Hey, zX gate $wire has zXc:{$found-zXc||False}, zXp:{$found-zXp||False}";
+        }
+    }
+    for %gates.keys -> $wire {
+        if %zX-outputs{$wire}:exists && $wire.substr(0,1) ne "z" {
+            %known-wrong-outputs{$wire}++;
+        }
+    }
+    for %zXc-outputs.keys -> $wire {
+        next if %zXnc-outputs{$wire}:exists && %zXnc-outputs{$wire} == 0;
+        my $found-zXnc = Nil;
+        my $found-zXcc = Nil;
+        for %gates{$wire}[1].Seq {
+            if %zXnc-outputs{$_}:exists {
+                $found-zXnc = True;
+            } elsif %zXcc-outputs{$_}:exists {
+                $found-zXcc = True;
+            } else {
+                say "zXc? $_";
+                %known-wrong-outputs{$_}++;
+            }
+        }
+        if !$found-zXcc || !$found-zXnc {
+            say "Hey, zXc gate $wire has zXcc:{$found-zXcc||False}, zXnc:{$found-zXnc||False}";
+        }
+    }
+    for %zXcc-outputs.keys -> $wire {
+        my $found-zXp = Nil;
+        my $found-zXc = Nil;
+        for %gates{$wire}[1].Seq {
+            if %zXp-outputs{$_}:exists {
+                $found-zXp = True;
+            } elsif %zXc-outputs{$_}:exists {
+                $found-zXc = True;
+            } else {
+                say "zXcc? $_";
+                %known-wrong-outputs{$_}++;
+            }
+        }
+        if !$found-zXc || !$found-zXp {
+            say "Hey, zXcc gate $wire has zXc:{$found-zXc||False}, zXp:{$found-zXp||False}";
+        }
+    }
+    # zXp wires should appear 2 times each
+    # zXnc wires should appear 1 time each
+    # zXc wires outputs should appear 2 times each
+    # zXcc wires should appear 1 time each
+    # zX wires should appear 0 time each
+    my %wire-to-created-outputs;
+    for %gates.keys -> $output {
+        my ($op, $input-wires) = %gates{$output};
+        for $input-wires.Seq {
+            %wire-to-created-outputs.push($_ => $output);
+        }
+    }
+    for %gates.keys -> $wire {
+        my $created-outputs = %wire-to-created-outputs{$wire}:exists ?? %wire-to-created-outputs{$wire}.elems !! 0;
+        my $was = %known-wrong-outputs{$wire};
+        %known-wrong-outputs{$wire}++ if %zXp-outputs{$wire}:exists && $created-outputs != 2 && $wire ne "z00";
+        %known-wrong-outputs{$wire}++ if %zXnc-outputs{$wire}:exists && $created-outputs != 1 && %zXnc-outputs{$wire} != 0;
+        %known-wrong-outputs{$wire}++ if %zXc-outputs{$wire}:exists && $created-outputs != 2;
+        %known-wrong-outputs{$wire}++ if %zXcc-outputs{$wire}:exists && $created-outputs != 1;
+        %known-wrong-outputs{$wire}++ if %zX-outputs{$wire}:exists && $created-outputs != 0;
+        if %known-wrong-outputs{$wire} && !$was {
+            say "new $wire: $created-outputs, zXp:{%zXp-outputs{$wire}:exists}\tzXnc:{%zXnc-outputs{$wire}:exists}\tzXc:{%zXc-outputs{$wire}:exists}\tzXcc:{%zXcc-outputs{$wire}:exists}\tzX:{%zX-outputs{$wire}:exists}";
+        }
+    }
+    %known-wrong-outputs{"z45"}--; # z45 is fine, but it uses OR instead of XOR, because there is no x45/y45
+    say "known correct: {%known-correct-outputs.keys}";
+    say "known wrong: {%known-wrong-outputs.keys.sort.join(",")}";
+
+    # my %unlabeled-gates = %gates.keys.SetHash;
+    # my %gate-labels;
+    # for %unlabeled-gates.keys -> $ug {
+    #     my ($op, $input-wires) = %gates{$ug};
+    #     # label z**p gates
+    #     if $op eq "XOR" {
+    #         my @sorted-wires is List = $input-wires.sort;
+    #         next unless @sorted-wires[0] ~~ /^x\d\d$/ && @sorted-wires[1] ~~ /^y\d\d$/;
+    #         my ($x-level, $y-level) = @sorted-wires>>.substr(1,2)>>.Int;
+    #         if $x-level != $y-level {
+    #             say "unexprected x($x-level)!=y($y-level)";
+    #             exit;
+    #         }
+    #         %gate-labels{$ug} = "z{sprintf("%02d", $x-level)}p";
+    #         %unlabeled-gates{$ug}--;
     #     }
-    #     my ($x, $y, $z) = <x y z>.map({wires-to-int(%wires, %gates, $_)});
-    #     say "x: ", sprintf("%x", $x);
-    #     say "y: ", sprintf("%x", $y);
-    #     say "expected z: ", sprintf("%x", $x + $y);
-    #     say "actual   z: ", sprintf("%x", $z);
-    #     exit;
+    #     # label z**nc gates
+    #     if $op eq "AND" {
+    #         my @sorted-wires is List = $input-wires.sort;
+    #         next unless @sorted-wires[0] ~~ /^x\d\d$/ && @sorted-wires[1] ~~ /^y\d\d$/;
+    #         my ($x-level, $y-level) = @sorted-wires>>.substr(1,2)>>.Int;
+    #         if $x-level != $y-level {
+    #             say "unexprected x($x-level)!=y($y-level)";
+    #             exit;
+    #         }
+    #         %gate-labels{$ug} = "z{sprintf("%02d", $x-level)}nc";
+    #         %unlabeled-gates{$ug}--;
+    #         %gate-labels{$ug} = "z00c" if %gate-labels{$ug} eq "z00nc";
+    #     }
     # }
+    # my %swapped-outputs is SetHash;
+    # # Only gate outputs are messed up, so zXp and zXnc gates are always correct
+    # for 0..45 -> $z-level {
+    #     my $wire = "z{sprintf("%02d", $z-level)}";
+    #     if %gate-labels{$wire}:exists && $wire ne "z00" {
+    #         say "zwire $wire is already labeled as {%gate-labels{$wire}}";
+    #         %swapped-outputs{$wire}++;
+    #         next;
+    #     }
+    #     my ($op, $input-wires) = %gates{$wire};
+    #     if $op ne "XOR" {
+    #         say "Invalid $op gate for wire $wire";
+    #         %swapped-outputs{$wire}++;
+    #         next;
+    #     }
+    #     if ! so $input-wires.map({%gate-labels{$_}:exists ?? %gate-labels{$_} !! "" }).any eq "{$wire}p" {
+    #         say "inputs to $wire are wrong: {$input-wires.map({%gate-labels{$_}:exists ?? %gate-labels{$_} !! $_})}";
+    #         for $input-wires.Seq {
+    #             if %gate-labels{$_}:exists {
+    #                 if %gate-labels{$_} !(elem) ("z{sprintf("%02d", $z-level)}p", "z{sprintf("%02d", $z-level-1)}c") {
+    #                     say "$_:{%gate-labels{$_}} does not belong in wire $wire";
+    #                     %swapped-outputs{$_}++;
+    #                 }
+    #             }
+    #         }
+    #     } else {
+    #         %unlabeled-gates{$wire}--;
+    #         %gate-labels{$wire} = $wire;
+    #     }
+    # }
+    # say "labels: ", %gate-labels;
+    # say "swapped: ", %swapped-outputs;
 
-    # for %gates.keys.sort {
-    #     next if .substr(0,1) ne "z";
-    #     say "$_: ", get-gate-expression(%gates, $_);
+
+
+    # say %unlabeled-gates.keys.grep({%gates{$_}[0] eq "XOR"});
+    # my @cc-gates = %unlabeled-gates.keys.grep({%gates{$_}[0] eq "AND"}).sort({
+    #     %gates{$_}[1].map({
+    #         if %gate-labels{$_}:exists {
+    #             %gate-labels{$_}
+    #         } else {
+    #             "ZZZZ"
+    #         }
+    #     }).sort[0]
+    # });
+    # say "cc-gates: ", @cc-gates.raku;
+    # for %unlabeled-gates.keys -> $ug {
+    #     my ($op, $input-wires) = %gates{$ug};
+    #     # label z**cc gates
+    #     if $op eq "AND" {
+    #         # The only "AND" gates left should be cc gates
+    #         my @sorted-wires is List = $input-wires.sort;
+    #         next unless @sorted-wires[0] ~~ /^x\d\d$/ && @sorted-wires[1] ~~ /^y\d\d$/;
+    #         my ($x-level, $y-level) = @sorted-wires>>.substr(1,2)>>.Int;
+    #         if $x-level != $y-level {
+    #             say "unexprected x($x-level)!=y($y-level)";
+    #             exit;
+    #         }
+    #         %gate-labels{$ug} = "z{sprintf("%02d", $x-level)}nc";
+    #         %unlabeled-gates{$ug}--;
+    #         %gate-labels{$ug} = "z00c" if %gate-labels{$ug} eq "z00nc";
+    #     }
+    # }
+    # say %gate-labels;
+    # loop {
+    #     for %unlabeled-gates -> $ug {
+
+    #     }
     # }
     say "part2-solution: $part2-solution";
-}
-
-# kinda worked, but depends on knowing the parent node for sure, which doesn't work
-sub resolve-gate-symbols(%gates, %named-gates, $gate, $parent, $z-level, %unexpected) {
-    # z00   = XOR(x00, y00)
-    #
-    # z00c  = AND(y00, x00)
-    # z01p  = XOR(x01, y01) # partial addition
-    # z01   = XOR(z01p, z00c) # addition including carry-int
-    #
-    # z01nc = AND(x01, y01) # normal x+y carry over
-    # z01cc = AND(z01p, z00c) # x|y + c-in carry over
-    # z01c  = OR(z01nc, z01cc) # carry-out. Only one branch can be true, so a XOR would work as well
-    # say "gater: $gate";
-    return $gate if $gate.substr(0,1) eq <x y>.any;
-    return %named-gates{$gate} if %named-gates{$gate}:exists;
-
-    my ($op, $input-wires) = %gates{$gate};
-    my @input-symbols is List = $input-wires.map({resolve-gate-symbols(%gates, %named-gates, $_, $gate, $z-level, %unexpected)});
-    return Nil unless @input-symbols.all.defined;
-    @input-symbols := @input-symbols.sort.List;
-
-    # say "Gate $gate:";
-    # say "\t$op";
-    # say "\t{@input-symbols}";
-    if $gate eq "z00" {
-        return Nil;
-    }
-    if $parent.defined && $parent eq "z01" {
-        if $op eq "AND" {
-            %named-gates{$gate} = "z00c";
-            return "z00c";
-        } elsif $op eq "XOR" {
-            %named-gates{$gate} = "z01p";
-            return "z01p";
-        }
-    }
-    if $gate ~~ /^z(\d\d)$/ {
-        # z00c  = AND(y00, x00)
-        # z01p  = XOR(x01, y01) # partial addition
-        # z01   = XOR(z01p, z00c) # addition including carry-int
-        if $op ne "XOR" {
-            say "$gate should be XOR, not $op";
-            %named-gates{$gate} = Nil;
-            %unexpected{$gate}++;
-            return Nil;
-        }
-        if $parent.defined {
-            say "$gate should not have a parent of $parent";
-            %named-gates{$gate} = Nil;
-            %unexpected{$gate}++;
-            return Nil;
-        }
-        my $z-level = $/[0].Int;
-        if @input-symbols !eqv (sprintf("z%02dc", $z-level -1), sprintf("z%02dp", $z-level)) {
-            say "$gate has unexpected inputs: {@input-symbols}";
-            say "expected {(sprintf("z%02dc", $z-level -1), sprintf("z%02dp", $z-level))}";
-            %named-gates{$gate} = Nil;
-            %unexpected{$gate}++;
-            return Nil;
-        }
-        %named-gates{$gate} = $gate;
-        return $gate;
-    }
-    if $parent ~~ /^z(\d\d)$/ {
-        if $op eq "XOR" {
-            if @input-symbols !eqv (sprintf("x%02d", $z-level), sprintf("y%02d", $z-level)) {
-                say "$gate $op (parent: $parent) has unexpected inputs: {@input-symbols}";
-                %named-gates{$gate} = Nil;
-                %unexpected{$gate}++;
-                return Nil;
-            }
-            %named-gates{$gate} = sprintf("z%02dp", $z-level);
-            return sprintf("z%02dp", $z-level);
-        } elsif $op eq "OR" {
-            if @input-symbols !eqv (sprintf("z%02dcc", $z-level - 1), sprintf("z%02dnc", $z-level - 1)) {
-                say "$gate (parent: $parent) has unexpected inputs: {@input-symbols}";
-                %named-gates{$gate} = Nil;
-                %unexpected{$gate}++;
-                return Nil;
-            }
-            %named-gates{$gate} = sprintf("z%02dc", $z-level - 1);
-            return sprintf("z%02dc", $z-level - 1);
-        } else {
-            %named-gates{$gate} = Nil;
-            %unexpected{$gate}++;
-            say "Not expecting $gate $op under $parent";
-            say "\t{@input-symbols}";
-            return Nil;
-        }
-    }
-    # otherwise should be the carry-over ANDs
-    if $op ne "AND" {
-        say "expected $gate op:$op parent:$parent to be AND";
-        say "\t{@input-symbols}";
-        %named-gates{$gate} = Nil;
-        %unexpected{$gate}++;
-        return Nil;
-    }
-    if @input-symbols[0] ~~ /^x\d\d$/ && @input-symbols[1] ~~ /^y\d\d$/ {
-        if @input-symbols[0].substr(1,2) ne @input-symbols[1].substr(1,2) {
-            say "unexpecting combination of xy into AND gate $gate: {@input-symbols}";
-            %named-gates{$gate} = Nil;
-            %unexpected{$gate}++;
-            return Nil;
-        }
-        %named-gates{$gate} = sprintf("z%snc", @input-symbols[0].substr(1,2));
-        return sprintf("z%snc", @input-symbols[0].substr(1,2));
-    }
-    if @input-symbols[0] ~~ /^z\d\dc$/ && @input-symbols[1] ~~ /^z\d\dp$/ {
-        my $zc-level = @input-symbols[0].substr(1,2).Int;
-        my $zp-level = @input-symbols[1].substr(1,2).Int;
-        if $zc-level + 1 != $zp-level {
-            say "unexpected combination of zc and dp into AND gate $gate: {@input-symbols}";
-            %named-gates{$gate} = Nil;
-            %unexpected{$gate}++;
-            return Nil;
-        }
-        %named-gates{$gate} = sprintf("z%scc", @input-symbols[1].substr(1,2));
-        return sprintf("z%scc", @input-symbols[1].substr(1,2));
-    }
-    say "random input into AND gate $gate: {@input-symbols}";
-    say "zc: ",@input-symbols[0] ~~ /^z\d\dc$/;
-    say "zp: ",@input-symbols[1] ~~ /^z\d\dp$/;
-    %named-gates{$gate} = Nil;
-    %unexpected{$gate}++;
-    return Nil;
 }
 
 sub wires-to-int(%wires, %gates, $prefix) {
@@ -222,24 +308,4 @@ sub resolve-gates(%wires, %gates, $gate) {
         when "OR"  { [||] @input-values }
     });
     # say "$gate = $op ({@input-values.raku}) = {%wires{$gate}}";
-}
-
-sub create-full-adder($level) {
-    return ("XOR", ("x00", "y00")) if $level == 0;
-    return ("XOR", (("XOR", (pad0("x", $level), pad0("y", $level))), ))
-}
-
-sub pad0($c, $level) {
-    sprintf("$c%02d", $level)
-}
-
-sub get-gate-expression(%gates, $gate) {
-    return $gate if %gates{$gate}:!exists;
-    my ($op, @input-wires) := %gates{$gate};
-    my @expanded-inputs = @input-wires.map({get-gate-expression(%gates, $_)});
-    return ($op, @expanded-inputs);
-}
-
-sub gate-expressions-equal($ge1, $ge2) {
-
 }
